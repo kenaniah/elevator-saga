@@ -8,6 +8,9 @@ _=
     // Register listeners for each of the lifts
     elevators.forEach((lift, idx) => {
 
+      // Store the lift's index (for later reference in logs)
+      lift.idx = idx
+
       // Determine the maximum capacity across all lifts
       this.maxPassengers += lift.maxPassengerCount()
       console.log("Lift", idx, "can carry max", lift.maxPassengerCount(), "passenger(s)")
@@ -16,7 +19,7 @@ _=
         console.log("Lift", idx, "- now idle")
       })
 
-      lift.on("floor_button_pressed", (floorNum) => {
+      lift.on("floor_button_pressed", floorNum => {
         console.log("Lift", idx, "- requested floor", floorNum, `capacity ${lift.loadFactor() * 100}%`)
         this.dispatchTo(lift, floorNum)
       })
@@ -30,7 +33,7 @@ _=
         }
       })
 
-      lift.on("stopped_at_floor", (floorNum) => {
+      lift.on("stopped_at_floor", floorNum => {
         console.log("Lift", idx, "- stopped at floor", floorNum, `capacity ${lift.loadFactor() * 100}%`)
         this.removeStop(lift, floorNum)
       })
@@ -57,12 +60,21 @@ _=
     // We normally don't need to do anything here
   },
   schedulePickup: function(elevators, floor, direction) {
-    // Determine which lift based on proximity, route, capacity
-    // Dispatch the lift to that floor
-    lift = elevators[0]
+
+    lift = null
+
+    // Search for the closest lift (with capacity) either stopped or heading in that direction
+    //elevators.filter(lift => lift.loadFactor() < 0.7).sort(...)
+
+    // Otherwise, find the lift with the least capacity
+    lift = lift || elevators.sort((a, b) => a.loadFactor() - b.loadFactor())[0]
+
+    // Dispatch it
     this.dispatchTo(lift, floor.floorNum())
+
   },
   dispatchTo: function(lift, floorNum) {
+    console.log("... dispatched lift", lift.idx)
     lift.goToFloor(floorNum)
   },
   removeStop: function(lift, floorNum) {
