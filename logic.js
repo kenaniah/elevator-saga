@@ -62,15 +62,19 @@ _=
   schedulePickup: function(elevators, floor, direction) {
 
     lift = null
+    floorNum = floor.floorNum()
 
     // Search for the closest lift (with capacity) either stopped or heading in that direction
-    //elevators.filter(lift => lift.loadFactor() < 0.7).sort(...)
+    lift = elevators
+      .filter(lift => lift.loadFactor() < 0.6)
+      .filter(lift => lift.destinationDirection() == "stopped" || ((lift.destinationDirection() == "up") != (lift.currentFloor() > floorNum)))
+      .sort((a, b) => Math.abs(a.currentFloor() - floorNum) - Math.abs(b.currentFloor() - floorNum))[0]
 
     // Otherwise, find the lift with the least capacity
     lift = lift || elevators.sort((a, b) => a.loadFactor() - b.loadFactor())[0]
 
     // Dispatch it
-    this.dispatchTo(lift, floor.floorNum())
+    this.dispatchTo(lift, floorNum)
 
   },
   dispatchTo: function(lift, floorNum) {
