@@ -3,28 +3,36 @@ _=
   maxPassengers: 0,
   init: function(elevators, floors) {
 
+    console.clear()
+
     // Register listeners for each of the lifts
     elevators.forEach((lift, idx) => {
 
       // Determine the maximum capacity across all lifts
       this.maxPassengers += lift.maxPassengerCount()
-      console.log(`Lift #${idx} can carry max ${lift.maxPassengerCount()} passenger(s)`)
+      console.log("Lift", idx, "can carry max", lift.maxPassengerCount(), "passenger(s)")
 
       lift.on("idle", (floorNum) => {
-        console.log(`Lift #${idx} - now idle`)
+        console.log("Lift", idx, "- now idle")
       })
 
       lift.on("floor_button_pressed", (floorNum) => {
-        console.log(`Lift #${idx} - requested floor #${floorNum} capacity ${lift.loadFactor() * 100}%`)
+        console.log("Lift", idx, "- requested floor", floorNum, `capacity ${lift.loadFactor() * 100}%`)
         this.dispatchTo(lift, floorNum)
       })
 
       lift.on("passing_floor", (floorNum, direction) => {
-        console.log(`Lift #${idx} - now passing floor #${floorNum} heading ${direction} capacity ${lift.loadFactor() * 100}%`)
+        console.log("Lift", idx, "- now passing floor", floorNum, "heading", direction, `capacity ${lift.loadFactor() * 100}%`)
+        // Preemptively at a floor if it was scheduled at some point
+        if(lift.destinationQueue.some(stop => stop == floorNum)) {
+          this.removeStop(lift, floorNum)
+          lift.goToFloor(floorNum, true)
+        }
       })
 
       lift.on("stopped_at_floor", (floorNum) => {
-        console.log(`Lift #${idx} - stopped at floor #${floorNum} capacity ${lift.loadFactor() * 100}%`)
+        console.log("Lift", idx, "- stopped at floor", floorNum, `capacity ${lift.loadFactor() * 100}%`)
+        this.removeStop(lift, floorNum)
       })
 
     })
@@ -32,17 +40,17 @@ _=
     // Register listeners for each of the floors
     floors.forEach((floor, idx) => {
       floor.on("up_button_pressed", () => {
-        console.log(`Floor #${floor.floorNum()} - up pressed`)
+        console.log("Floor", floor.floorNum(), "- up pressed")
         this.schedulePickup(elevators, floor, "up")
       })
       floor.on("down_button_pressed", () => {
-        console.log(`Floor #${floor.floorNum()} - down pressed`)
+        console.log("Floor", floor.floorNum(), "- down pressed")
         this.schedulePickup(elevators, floor, "down")
       })
     })
 
     // Report total capacity
-    console.log(`Total passenger capacity: ${this.maxPassengers}`)
+    console.log("Total passenger capacity:", this.maxPassengers)
 
   },
   update: function(dt, elevators, floors) {
@@ -57,4 +65,10 @@ _=
   dispatchTo: function(lift, floorNum) {
     lift.goToFloor(floorNum)
   },
+  removeStop: function(lift, floorNum) {
+    console.log("... removing stop:", floorNum)
+    lift.destinationQueue = lift.destinationQueue.filter(stop => stop != floorNum)
+    lift.checkDestinationQueue()
+    console.log("... destination queue:", lift.destinationQueue)
+  }
 }
