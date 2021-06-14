@@ -38,6 +38,9 @@ _=
         this.removeStop(lift, floorNum)
       })
 
+      // Initial floor selection
+      lift.goToFloor(Math.floor(idx * (floors.length / elevators.length)))
+
     })
 
     // Register listeners for each of the floors
