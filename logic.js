@@ -1,4 +1,4 @@
-_ = // Remove this line when pasting into the editor
+_=
 {
   maxPassengers: 0,
   init: function(elevators, floors) {
@@ -16,11 +16,11 @@ _ = // Remove this line when pasting into the editor
 
       lift.on("floor_button_pressed", (floorNum) => {
         console.log(`Lift #${idx} - requested floor #${floorNum} capacity ${lift.loadFactor() * 100}%`)
+        this.dispatchTo(lift, floorNum)
       })
 
       lift.on("passing_floor", (floorNum, direction) => {
         console.log(`Lift #${idx} - now passing floor #${floorNum} heading ${direction} capacity ${lift.loadFactor() * 100}%`)
-        console.log(`Lift #${idx} - now passing floor #${floorNum} heading ${direction}`)
       })
 
       lift.on("stopped_at_floor", (floorNum) => {
@@ -33,28 +33,28 @@ _ = // Remove this line when pasting into the editor
     floors.forEach((floor, idx) => {
       floor.on("up_button_pressed", () => {
         console.log(`Floor #${floor.floorNum()} - up pressed`)
+        this.schedulePickup(elevators, floor, "up")
       })
       floor.on("down_button_pressed", () => {
         console.log(`Floor #${floor.floorNum()} - down pressed`)
+        this.schedulePickup(elevators, floor, "down")
       })
     })
 
-    // Report on capacity
+    // Report total capacity
     console.log(`Total passenger capacity: ${this.maxPassengers}`)
-
-    var elevator = elevators[0]; // Let's use the first elevator
-
-    // Whenever the elevator is idle (has no more queued destinations) ...
-    elevator.on("idle", function() {
-      // let's go to all the floors (or did we forget one?)
-      elevator.goToFloor(0);
-      elevator.goToFloor(1);
-      elevator.goToFloor(2);
-      elevator.goToFloor(1);
-    });
 
   },
   update: function(dt, elevators, floors) {
     // We normally don't need to do anything here
+  },
+  schedulePickup: function(elevators, floor, direction) {
+    // Determine which lift based on proximity, route, capacity
+    // Dispatch the lift to that floor
+    lift = elevators[0]
+    this.dispatchTo(lift, floor.floorNum())
+  },
+  dispatchTo: function(lift, floorNum) {
+    lift.goToFloor(floorNum)
   },
 }
