@@ -36,6 +36,7 @@ _=
       lift.on("stopped_at_floor", floorNum => {
         console.log("Lift", idx, "- stopped at floor", floorNum, `capacity ${lift.loadFactor() * 100}%`)
         this.removeStop(lift, floorNum)
+        this.cancelPickup(elevators, floorNum)
       })
 
       // Initial floor selection
@@ -69,7 +70,7 @@ _=
 
     // Search for the closest lift (with capacity) either stopped or heading in that direction
     lift = elevators
-      .filter(lift => lift.loadFactor() < 0.6)
+      .filter(lift => lift.loadFactor() < 0.7)
       .filter(lift => lift.destinationDirection() == "stopped" || ((lift.destinationDirection() == "up") != (lift.currentFloor() > floorNum)))
       .sort((a, b) => Math.abs(a.currentFloor() - floorNum) - Math.abs(b.currentFloor() - floorNum))[0]
 
@@ -89,5 +90,14 @@ _=
     lift.destinationQueue = lift.destinationQueue.filter(stop => stop != floorNum)
     lift.checkDestinationQueue()
     console.log("... destination queue:", lift.destinationQueue)
+  },
+  cancelPickup: function(elevators, floorNum) {
+    elevators
+      .filter(lift => lift.destinationQueue.includes(floorNum))
+      .filter(lift => !lift.getPressedFloors().includes(floorNum))
+      .forEach(lift => {
+        console.log("Lift", lift.idx, "- cancelling pickup")
+        this.removeStop(lift, floorNum)
+      })
   }
 }
