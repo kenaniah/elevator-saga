@@ -1,18 +1,22 @@
 _= 
 {
   maxPassengers: 0,
-  maxLifts: 1,
-  goal: "moves", // Optimize for moves or speed
+  maxLifts: 10,
+  goal: "speed", // Optimize for moves or speed
   init: function(elevators, floors) {
 
     console.clear()
 
+    num_lifts = Math.min(this.maxLifts, elevators.length)
+    idle_spacing = floors.length / num_lifts
+
     // Register listeners for each of the lifts
     elevators.forEach((lift, idx) => {
 
-      // Store the lift's index (for later reference in logs)
+      // Augment the lift object
       lift.idx = idx
       lift.enabled = true
+      lift.idleFloor = 0
       lift.isFull = function() {
         count = this.maxPassengerCount()
         threshold = (count - 1) / count
@@ -29,12 +33,18 @@ _=
         return
       }
 
+      // Set the default idle floor per lift
+      if(this.goal != "moves") {
+        lift.idleFloor = Math.round(idx * idle_spacing)
+      }
+
       // Determine the maximum capacity across all lifts
       this.maxPassengers += lift.maxPassengerCount()
       console.log("Lift", idx, "can carry max", lift.maxPassengerCount(), "passenger(s)")
 
       lift.on("idle", (floorNum) => {
         console.log("Lift", idx, "- now idle")
+        if(lift.currentFloor() != lift.idleFloor) this.dispatchTo(lift, lift.idleFloor)
       })
 
       lift.on("floor_button_pressed", floorNum => {
@@ -59,7 +69,7 @@ _=
 
       // Initial floor selection
       if(lift.enabled && this.goal != "moves"){
-        lift.goToFloor(Math.floor(idx * (floors.length / elevators.length)))
+        lift.goToFloor(lift.idleFloor)
       }
 
     })
@@ -100,13 +110,13 @@ _=
 
     // If we're close to full, ignore the call
     if(lift.isFull()) {
-      console.log("... ignoring pickup for floor", floor, "as lift", lift.idx, "is full", `capacity ${lift.loadFactor() * 100}%`)
+      console.log("... ignoring pickup for floor", floorNum, "as lift", lift.idx, "is full", `capacity ${lift.loadFactor() * 100}%`)
       return
     } 
 
     // If we're not full and movement-constrainted, ignore the call
     if(lift.loadFactor < 0.75 && this.goal == "moves") {
-      console.log("... ignoring pickup for floor", floor, "as lift", lift.idx, "is not yet fully occupied", `capacity ${lift.loadFactor() * 100}%`)
+      console.log("... ignoring pickup for floor", floorNum, "as lift", lift.idx, "is not yet fully occupied", `capacity ${lift.loadFactor() * 100}%`)
       return
     }
 
