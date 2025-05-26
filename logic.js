@@ -1,6 +1,8 @@
-_=
+_= 
 {
   maxPassengers: 0,
+  maxLifts: 1,
+  goal: "moves", // Optimize for moves or speed
   init: function(elevators, floors) {
 
     console.clear()
@@ -10,6 +12,22 @@ _=
 
       // Store the lift's index (for later reference in logs)
       lift.idx = idx
+      lift.enabled = true
+      lift.isFull = function() {
+        count = this.maxPassengerCount()
+        threshold = (count - 1) / count
+        full = this.loadFactor() >= threshold
+        if(full) console.log("... lift", this.idx, "is full", `capacity ${this.loadFactor() * 100}%`);
+        return full
+      }
+
+      // Disable lifts if goal is movement-constrained
+      if(idx >= this.maxLifts) {
+        lift.enabled = false
+        lift.goingUpIndicator(false)
+        lift.goingDownIndicator(false)
+        return
+      }
 
       // Determine the maximum capacity across all lifts
       this.maxPassengers += lift.maxPassengerCount()
@@ -40,7 +58,9 @@ _=
       })
 
       // Initial floor selection
-      lift.goToFloor(Math.floor(idx * (floors.length / elevators.length)))
+      if(lift.enabled && this.goal != "moves"){
+        lift.goToFloor(Math.floor(idx * (floors.length / elevators.length)))
+      }
 
     })
 
@@ -61,7 +81,7 @@ _=
 
   },
   update: function(dt, elevators, floors) {
-    // We normally don't need to do anything here
+    // TODO: cancel pickups if the elevator is full
   },
   schedulePickup: function(elevators, floor, direction) {
 
@@ -70,19 +90,32 @@ _=
 
     // Search for the closest lift (with capacity) either stopped or heading in that direction
     lift = elevators
-      .filter(lift => lift.loadFactor() < 0.7)
+      .filter(lift => lift.enabled)
+      .filter(lift => !lift.isFull())
       .filter(lift => lift.destinationDirection() == "stopped" || ((lift.destinationDirection() == "up") != (lift.currentFloor() > floorNum)))
       .sort((a, b) => Math.abs(a.currentFloor() - floorNum) - Math.abs(b.currentFloor() - floorNum))[0]
 
     // Otherwise, find the lift with the least capacity
-    lift = lift || elevators.sort((a, b) => a.loadFactor() - b.loadFactor())[0]
+    lift = lift || elevators.filter(lift => lift.enabled).sort((a, b) => a.loadFactor() - b.loadFactor())[0]
+
+    // If we're close to full, ignore the call
+    if(lift.isFull()) {
+      console.log("... ignoring pickup for floor", floor, "as lift", lift.idx, "is full", `capacity ${lift.loadFactor() * 100}%`)
+      return
+    } 
+
+    // If we're not full and movement-constrainted, ignore the call
+    if(lift.loadFactor < 0.75 && this.goal == "moves") {
+      console.log("... ignoring pickup for floor", floor, "as lift", lift.idx, "is not yet fully occupied", `capacity ${lift.loadFactor() * 100}%`)
+      return
+    }
 
     // Dispatch it
     this.dispatchTo(lift, floorNum)
 
   },
   dispatchTo: function(lift, floorNum) {
-    console.log("... dispatched lift", lift.idx)
+    console.log("... dispatched lift", lift.idx, "to floor", floorNum, `capacity ${lift.loadFactor() * 100}%`)
     lift.goToFloor(floorNum)
   },
   removeStop: function(lift, floorNum) {
