@@ -2,7 +2,7 @@ _=
 {
   maxPassengers: 0,
   maxLifts: 10,
-  goal: "speed", // Optimize for moves or speed
+  optima: "delay", // Optimize for moves, throughput, or delay
   init: function(elevators, floors) {
 
     console.clear()
@@ -25,7 +25,7 @@ _=
         return full
       }
 
-      // Disable lifts if goal is movement-constrained
+      // Disable lifts if optima is movement-constrained
       if(idx >= this.maxLifts) {
         lift.enabled = false
         lift.goingUpIndicator(false)
@@ -34,7 +34,7 @@ _=
       }
 
       // Set the default idle floor per lift
-      if(this.goal != "moves") {
+      if(this.optima != "moves") {
         lift.idleFloor = Math.round(idx * idle_spacing)
       }
 
@@ -68,8 +68,8 @@ _=
       })
 
       // Initial floor selection
-      if(lift.enabled && this.goal != "moves"){
-        lift.goToFloor(lift.idleFloor)
+      if(this.optima != "moves" && lift.enabled){
+        this.dispatchTo(lift, lift.idleFloor)
       }
 
     })
@@ -98,8 +98,14 @@ _=
     lift = null
     floorNum = floor.floorNum()
 
-    // Search for the closest lift (with capacity) either stopped or heading in that direction
+    // Search for the closest idle lift first
     lift = elevators
+      .filter(lift => lift.enabled)
+      .filter(lift => lift.destinationDirection() == "stopped")
+      .sort((a, b) => Math.abs(a.currentFloor() - floorNum) - Math.abs(b.currentFloor() - floorNum))[0]
+
+    // Otherwise, search for the closest lift (with capacity) heading in that direction
+    lift = lift || elevators
       .filter(lift => lift.enabled)
       .filter(lift => !lift.isFull())
       .filter(lift => lift.destinationDirection() == "stopped" || ((lift.destinationDirection() == "up") != (lift.currentFloor() > floorNum)))
@@ -115,7 +121,7 @@ _=
     } 
 
     // If we're not full and movement-constrainted, ignore the call
-    if(lift.loadFactor < 0.75 && this.goal == "moves") {
+    if(this.optima == "moves" && lift.loadFactor < 0.75) {
       console.log("... ignoring pickup for floor", floorNum, "as lift", lift.idx, "is not yet fully occupied", `capacity ${lift.loadFactor() * 100}%`)
       return
     }
@@ -124,9 +130,9 @@ _=
     this.dispatchTo(lift, floorNum)
 
   },
-  dispatchTo: function(lift, floorNum) {
-    console.log("... dispatched lift", lift.idx, "to floor", floorNum, `capacity ${lift.loadFactor() * 100}%`)
-    lift.goToFloor(floorNum)
+  dispatchTo: function(lift, floorNum, expedite = false) {
+    console.log(`... ${expedite ? "expedited" : "dispatched"} lift`, lift.idx, "to floor", floorNum, `capacity ${lift.loadFactor() * 100}%`)
+    lift.goToFloor(floorNum, expedite)
   },
   removeStop: function(lift, floorNum) {
     console.log("... removing stop:", floorNum)
@@ -135,11 +141,12 @@ _=
     console.log("... destination queue:", lift.destinationQueue)
   },
   cancelPickup: function(elevators, floorNum) {
+    if(this.optima == "delay") return
     elevators
       .filter(lift => lift.destinationQueue.includes(floorNum))
       .filter(lift => !lift.getPressedFloors().includes(floorNum))
       .forEach(lift => {
-        console.log("Lift", lift.idx, "- cancelling pickup")
+        console.log("... lift", lift.idx, "- cancelling pickup")
         this.removeStop(lift, floorNum)
       })
   }
